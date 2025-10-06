@@ -93,7 +93,9 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        await parseExcelFile(file, file.name);
+        // Get the full path from webkitRelativePath if available (folder upload)
+        const filePath = (file as any).webkitRelativePath || file.name;
+        await parseExcelFile(file, filePath);
       }
 
       toast({
@@ -122,11 +124,30 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
         multiple
         onChange={handleFileUpload}
       />
+      <input
+        type="file"
+        id="folder-upload"
+        className="hidden"
+        accept=".xlsx,.xls"
+        // @ts-ignore - webkitdirectory is not in the types but works in browsers
+        webkitdirectory=""
+        directory=""
+        multiple
+        onChange={handleFileUpload}
+      />
       <label htmlFor="file-upload">
         <Button asChild>
           <span className="cursor-pointer">
             <Upload className="mr-2 h-4 w-4" />
-            Upload Excel Files
+            Upload Files
+          </span>
+        </Button>
+      </label>
+      <label htmlFor="folder-upload">
+        <Button asChild variant="outline">
+          <span className="cursor-pointer">
+            <Upload className="mr-2 h-4 w-4" />
+            Upload Folder
           </span>
         </Button>
       </label>

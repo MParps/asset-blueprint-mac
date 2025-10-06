@@ -6,11 +6,13 @@ import { BomTable } from "@/components/BomTable";
 const Index = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
   const [selectedAssetName, setSelectedAssetName] = useState<string>("");
+  const [selectedAssetPath, setSelectedAssetPath] = useState<string>("");
   const [refreshTrigger, setRefreshTrigger] = useState(0);
 
-  const handleAssetSelect = (assetId: string, assetName: string) => {
+  const handleAssetSelect = (assetId: string, assetName: string, assetPath: string) => {
     setSelectedAssetId(assetId);
     setSelectedAssetName(assetName);
+    setSelectedAssetPath(assetPath);
   };
 
   const handleUploadSuccess = () => {
@@ -44,7 +46,7 @@ const Index = () => {
         </aside>
         
         <main className="flex-1 p-6">
-          <BomTable assetId={selectedAssetId} assetName={selectedAssetName} />
+          <BomTable assetId={selectedAssetId} assetName={selectedAssetName} assetPath={selectedAssetPath} />
         </main>
       </div>
     </div>

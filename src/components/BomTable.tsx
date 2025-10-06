@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, X, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -29,9 +29,10 @@ interface BomItem {
 interface BomTableProps {
   assetId: string | null;
   assetName: string;
+  assetPath: string;
 }
 
-export const BomTable = ({ assetId, assetName }: BomTableProps) => {
+export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
   const [items, setItems] = useState<BomItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedItem, setEditedItem] = useState<Partial<BomItem>>({});
@@ -120,13 +121,24 @@ export const BomTable = ({ assetId, assetName }: BomTableProps) => {
     );
   }
 
+  const pathParts = assetPath.split("/");
+
   return (
     <div className="h-full flex flex-col">
-      <div className="mb-4">
-        <h2 className="text-2xl font-bold">{assetName}</h2>
-        <p className="text-sm text-muted-foreground">{items.length} items</p>
+      <div className="border-b bg-muted/30 p-6 mb-4">
+        <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
+          {pathParts.map((part, index) => (
+            <div key={index} className="flex items-center">
+              {index > 0 && <ChevronRight className="h-3 w-3 mx-1" />}
+              <span>{part}</span>
+            </div>
+          ))}
+        </div>
+        <h2 className="text-3xl font-bold">{assetName}</h2>
+        <p className="text-sm text-muted-foreground mt-1">{items.length} items</p>
       </div>
-      <div className="flex-1 overflow-auto border rounded-lg">
+      <div className="flex-1 overflow-auto px-6 pb-6">
+        <div className="border rounded-lg">
         <Table>
           <TableHeader>
             <TableRow>
@@ -268,6 +280,7 @@ export const BomTable = ({ assetId, assetName }: BomTableProps) => {
             })}
           </TableBody>
         </Table>
+        </div>
       </div>
     </div>
   );
