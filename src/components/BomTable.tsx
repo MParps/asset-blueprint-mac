@@ -57,6 +57,7 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
   const [currentSheetId, setCurrentSheetId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedItem, setEditedItem] = useState<Partial<BomItem>>({});
+  const [editingField, setEditingField] = useState<{ itemId: string; field: keyof BomItem; value: string; rect: DOMRect } | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -121,6 +122,7 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
   const cancelEdit = () => {
     setEditingId(null);
     setEditedItem({});
+    setEditingField(null);
   };
 
   const saveEdit = async () => {
@@ -145,9 +147,16 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
       description: "Item updated successfully",
     });
 
+    // Update the local state instead of reloading
+    setItems(prevItems => 
+      prevItems.map(item => 
+        item.id === editingId ? { ...item, ...editedItem } : item
+      )
+    );
+
     setEditingId(null);
     setEditedItem({});
-    loadBomItems();
+    setEditingField(null);
   };
 
   const handleFieldChange = (field: keyof BomItem, value: string) => {
@@ -189,60 +198,44 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
       
       <div className="flex-1 overflow-auto px-6 pb-6">
         {metadata && (
-          <Card className="mb-6">
+          <Card className="mb-6" style={{ backgroundColor: '#0077b6' }}>
             <CardHeader>
-              <CardTitle className="text-lg">Asset Information</CardTitle>
+              <CardTitle className="text-lg text-white">Asset Information</CardTitle>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {metadata.assembly_name && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Assembly Name</p>
-                    <p className="text-sm mt-1">{metadata.assembly_name}</p>
-                  </div>
-                )}
-                {metadata.assembly_manufacturer && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Manufacturer</p>
-                    <p className="text-sm mt-1">{metadata.assembly_manufacturer}</p>
-                  </div>
-                )}
-                {metadata.system && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">System</p>
-                    <p className="text-sm mt-1">{metadata.system}</p>
-                  </div>
-                )}
-                {metadata.asset_number && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Asset Number</p>
-                    <p className="text-sm mt-1">{metadata.asset_number}</p>
-                  </div>
-                )}
-                {metadata.description && (
-                  <div className="col-span-2">
-                    <p className="text-sm font-medium text-muted-foreground">Description</p>
-                    <p className="text-sm mt-1">{metadata.description}</p>
-                  </div>
-                )}
-                {metadata.rebuild_item && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Rebuild Item</p>
-                    <p className="text-sm mt-1">{metadata.rebuild_item}</p>
-                  </div>
-                )}
-                {metadata.approval_date && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Approval Date</p>
-                    <p className="text-sm mt-1">{metadata.approval_date}</p>
-                  </div>
-                )}
-                {metadata.total_cost && (
-                  <div>
-                    <p className="text-sm font-medium text-muted-foreground">Total Cost</p>
-                    <p className="text-sm mt-1">${metadata.total_cost.toFixed(2)}</p>
-                  </div>
-                )}
+                <div>
+                  <p className="text-sm font-medium text-white/80">Assembly Name</p>
+                  <p className="text-sm mt-1 text-white">{metadata.assembly_name || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/80">Manufacturer</p>
+                  <p className="text-sm mt-1 text-white">{metadata.assembly_manufacturer || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/80">System</p>
+                  <p className="text-sm mt-1 text-white">{metadata.system || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/80">Asset Number</p>
+                  <p className="text-sm mt-1 text-white">{metadata.asset_number || 'N/A'}</p>
+                </div>
+                <div className="col-span-2">
+                  <p className="text-sm font-medium text-white/80">Description</p>
+                  <p className="text-sm mt-1 text-white">{metadata.description || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/80">Rebuild Item</p>
+                  <p className="text-sm mt-1 text-white">{metadata.rebuild_item || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/80">Approval Date</p>
+                  <p className="text-sm mt-1 text-white">{metadata.approval_date || 'N/A'}</p>
+                </div>
+                <div>
+                  <p className="text-sm font-medium text-white/80">Total Cost</p>
+                  <p className="text-sm mt-1 text-white">{metadata.total_cost ? `$${metadata.total_cost.toFixed(2)}` : 'N/A'}</p>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -294,96 +287,141 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
                       </Button>
                     )}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     {isEditing ? (
                       <Input
                         value={editedItem.item_no || ""}
                         onChange={(e) => handleFieldChange("item_no", e.target.value)}
+                        onFocus={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setEditingField({ itemId: item.id, field: "item_no", value: editedItem.item_no || "", rect });
+                        }}
+                        onBlur={() => setEditingField(null)}
                         className="w-20"
                       />
                     ) : (
                       item.item_no
                     )}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     {isEditing ? (
                       <Input
                         value={editedItem.description || ""}
                         onChange={(e) => handleFieldChange("description", e.target.value)}
+                        onFocus={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setEditingField({ itemId: item.id, field: "description", value: editedItem.description || "", rect });
+                        }}
+                        onBlur={() => setEditingField(null)}
                       />
                     ) : (
                       item.description
                     )}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     {isEditing ? (
                       <Input
                         value={editedItem.details || ""}
                         onChange={(e) => handleFieldChange("details", e.target.value)}
+                        onFocus={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setEditingField({ itemId: item.id, field: "details", value: editedItem.details || "", rect });
+                        }}
+                        onBlur={() => setEditingField(null)}
                       />
                     ) : (
                       item.details
                     )}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     {isEditing ? (
                       <Input
                         value={editedItem.manufacturer || ""}
                         onChange={(e) => handleFieldChange("manufacturer", e.target.value)}
+                        onFocus={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setEditingField({ itemId: item.id, field: "manufacturer", value: editedItem.manufacturer || "", rect });
+                        }}
+                        onBlur={() => setEditingField(null)}
                       />
                     ) : (
                       item.manufacturer
                     )}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     {isEditing ? (
                       <Input
                         value={editedItem.part_number || ""}
                         onChange={(e) => handleFieldChange("part_number", e.target.value)}
+                        onFocus={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setEditingField({ itemId: item.id, field: "part_number", value: editedItem.part_number || "", rect });
+                        }}
+                        onBlur={() => setEditingField(null)}
                       />
                     ) : (
                       item.part_number
                     )}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     {isEditing ? (
                       <Input
                         value={editedItem.item_code || ""}
                         onChange={(e) => handleFieldChange("item_code", e.target.value)}
+                        onFocus={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setEditingField({ itemId: item.id, field: "item_code", value: editedItem.item_code || "", rect });
+                        }}
+                        onBlur={() => setEditingField(null)}
                       />
                     ) : (
                       item.item_code
                     )}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     {isEditing ? (
                       <Input
                         value={editedItem.uom || ""}
                         onChange={(e) => handleFieldChange("uom", e.target.value)}
+                        onFocus={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setEditingField({ itemId: item.id, field: "uom", value: editedItem.uom || "", rect });
+                        }}
+                        onBlur={() => setEditingField(null)}
                         className="w-20"
                       />
                     ) : (
                       item.uom
                     )}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     {isEditing ? (
                       <Input
                         type="number"
                         value={editedItem.sys_qty || ""}
                         onChange={(e) => handleFieldChange("sys_qty", e.target.value)}
+                        onFocus={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setEditingField({ itemId: item.id, field: "sys_qty", value: String(editedItem.sys_qty || ""), rect });
+                        }}
+                        onBlur={() => setEditingField(null)}
                         className="w-24"
                       />
                     ) : (
                       item.sys_qty
                     )}
                   </TableCell>
-                  <TableCell>
+                   <TableCell>
                     {isEditing ? (
                       <Input
                         type="number"
                         value={editedItem.cost || ""}
                         onChange={(e) => handleFieldChange("cost", e.target.value)}
+                        onFocus={(e) => {
+                          const rect = e.currentTarget.getBoundingClientRect();
+                          setEditingField({ itemId: item.id, field: "cost", value: String(editedItem.cost || ""), rect });
+                        }}
+                        onBlur={() => setEditingField(null)}
                         className="w-24"
                       />
                     ) : (
@@ -395,6 +433,23 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
             })}
           </TableBody>
             </Table>
+          </div>
+        )}
+
+        {editingField && (
+          <div 
+            className="fixed z-50 bg-background border rounded-lg shadow-lg p-3 max-w-md"
+            style={{
+              top: `${editingField.rect.top - 60}px`,
+              left: `${editingField.rect.left}px`,
+            }}
+          >
+            <p className="text-xs text-muted-foreground mb-1 capitalize">
+              {editingField.field.replace(/_/g, ' ')}
+            </p>
+            <p className="text-sm font-medium break-words">
+              {editingField.value || '(empty)'}
+            </p>
           </div>
         )}
       </div>

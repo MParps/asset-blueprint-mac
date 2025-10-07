@@ -158,19 +158,6 @@ export const AssetTree = ({ onAssetSelect, selectedAssetId, refreshTrigger }: As
   const deleteAsset = async () => {
     if (!assetToDelete) return;
 
-    // Check if asset has children
-    const hasChildren = assetToDelete.children && assetToDelete.children.length > 0;
-    
-    if (hasChildren) {
-      toast({
-        title: "Cannot delete",
-        description: "This folder contains items. Please delete or move them first.",
-        variant: "destructive",
-      });
-      setShowDeleteDialog(false);
-      return;
-    }
-
     const { error } = await supabase
       .from("asset_hierarchy")
       .delete()
