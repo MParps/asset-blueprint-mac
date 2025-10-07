@@ -16,36 +16,92 @@ export type Database = {
     Tables: {
       asset_hierarchy: {
         Row: {
+          approval_date: string | null
+          assembly_manufacturer: string | null
+          assembly_name: string | null
+          asset_number: string | null
           created_at: string | null
+          description: string | null
           id: string
           level: number | null
           name: string
           parent_id: string | null
           path: string
+          rebuild_item: string | null
+          system: string | null
+          total_cost: number | null
           updated_at: string | null
         }
         Insert: {
+          approval_date?: string | null
+          assembly_manufacturer?: string | null
+          assembly_name?: string | null
+          asset_number?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           level?: number | null
           name: string
           parent_id?: string | null
           path: string
+          rebuild_item?: string | null
+          system?: string | null
+          total_cost?: number | null
           updated_at?: string | null
         }
         Update: {
+          approval_date?: string | null
+          assembly_manufacturer?: string | null
+          assembly_name?: string | null
+          asset_number?: string | null
           created_at?: string | null
+          description?: string | null
           id?: string
           level?: number | null
           name?: string
           parent_id?: string | null
           path?: string
+          rebuild_item?: string | null
+          system?: string | null
+          total_cost?: number | null
           updated_at?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "asset_hierarchy_parent_id_fkey"
             columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "asset_hierarchy"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asset_sheets: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          sheet_index: number
+          sheet_name: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          sheet_index: number
+          sheet_name: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          sheet_index?: number
+          sheet_name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_sheets_asset_id_fkey"
+            columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "asset_hierarchy"
             referencedColumns: ["id"]
@@ -64,6 +120,7 @@ export type Database = {
           item_no: string | null
           manufacturer: string | null
           part_number: string | null
+          sheet_id: string | null
           sys_qty: number | null
           uom: string | null
           updated_at: string | null
@@ -79,6 +136,7 @@ export type Database = {
           item_no?: string | null
           manufacturer?: string | null
           part_number?: string | null
+          sheet_id?: string | null
           sys_qty?: number | null
           uom?: string | null
           updated_at?: string | null
@@ -94,6 +152,7 @@ export type Database = {
           item_no?: string | null
           manufacturer?: string | null
           part_number?: string | null
+          sheet_id?: string | null
           sys_qty?: number | null
           uom?: string | null
           updated_at?: string | null
@@ -104,6 +163,13 @@ export type Database = {
             columns: ["asset_id"]
             isOneToOne: false
             referencedRelation: "asset_hierarchy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "bom_items_sheet_id_fkey"
+            columns: ["sheet_id"]
+            isOneToOne: false
+            referencedRelation: "asset_sheets"
             referencedColumns: ["id"]
           },
         ]

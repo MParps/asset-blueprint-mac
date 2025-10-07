@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Pencil, Save, X, ChevronRight } from "lucide-react";
+import { Pencil, Save, X, ChevronRight, FileText } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface BomItem {
   id: string;
@@ -26,6 +27,23 @@ interface BomItem {
   cost: number | null;
 }
 
+interface AssetMetadata {
+  assembly_name: string | null;
+  assembly_manufacturer: string | null;
+  description: string | null;
+  system: string | null;
+  rebuild_item: string | null;
+  asset_number: string | null;
+  approval_date: string | null;
+  total_cost: number | null;
+}
+
+interface Sheet {
+  id: string;
+  sheet_name: string;
+  sheet_index: number;
+}
+
 interface BomTableProps {
   assetId: string | null;
   assetName: string;
@@ -34,23 +52,57 @@ interface BomTableProps {
 
 export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
   const [items, setItems] = useState<BomItem[]>([]);
+  const [metadata, setMetadata] = useState<AssetMetadata | null>(null);
+  const [sheets, setSheets] = useState<Sheet[]>([]);
+  const [currentSheetId, setCurrentSheetId] = useState<string | null>(null);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedItem, setEditedItem] = useState<Partial<BomItem>>({});
   const { toast } = useToast();
 
   useEffect(() => {
     if (assetId) {
-      loadBomItems();
+      loadAssetData();
     }
   }, [assetId]);
 
-  const loadBomItems = async () => {
+  useEffect(() => {
+    if (currentSheetId) {
+      loadBomItems();
+    }
+  }, [currentSheetId]);
+
+  const loadAssetData = async () => {
     if (!assetId) return;
+
+    // Load metadata
+    const { data: assetData } = await supabase
+      .from("asset_hierarchy")
+      .select("assembly_name, assembly_manufacturer, description, system, rebuild_item, asset_number, approval_date, total_cost")
+      .eq("id", assetId)
+      .single();
+
+    setMetadata(assetData);
+
+    // Load sheets
+    const { data: sheetsData } = await supabase
+      .from("asset_sheets")
+      .select("*")
+      .eq("asset_id", assetId)
+      .order("sheet_index");
+
+    if (sheetsData && sheetsData.length > 0) {
+      setSheets(sheetsData);
+      setCurrentSheetId(sheetsData[0].id);
+    }
+  };
+
+  const loadBomItems = async () => {
+    if (!currentSheetId) return;
 
     const { data, error } = await supabase
       .from("bom_items")
       .select("*")
-      .eq("asset_id", assetId)
+      .eq("sheet_id", currentSheetId)
       .order("item_no");
 
     if (error) {
@@ -113,15 +165,8 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
     );
   }
 
-  if (items.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <p className="text-muted-foreground">No BOM items found for this asset</p>
-      </div>
-    );
-  }
-
   const pathParts = assetPath.split("/");
+  const currentSheet = sheets.find(s => s.id === currentSheetId);
 
   return (
     <div className="h-full flex flex-col">
@@ -135,11 +180,81 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
           ))}
         </div>
         <h2 className="text-3xl font-bold">{assetName}</h2>
-        <p className="text-sm text-muted-foreground mt-1">{items.length} items</p>
+        {currentSheet && (
+          <p className="text-sm text-muted-foreground mt-1">
+            Sheet: {currentSheet.sheet_name} • {items.length} items
+          </p>
+        )}
       </div>
+      
       <div className="flex-1 overflow-auto px-6 pb-6">
-        <div className="border rounded-lg">
-        <Table>
+        {metadata && (
+          <Card className="mb-6">
+            <CardHeader>
+              <CardTitle className="text-lg">Asset Information</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {metadata.assembly_name && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Assembly Name</p>
+                    <p className="text-sm mt-1">{metadata.assembly_name}</p>
+                  </div>
+                )}
+                {metadata.assembly_manufacturer && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Manufacturer</p>
+                    <p className="text-sm mt-1">{metadata.assembly_manufacturer}</p>
+                  </div>
+                )}
+                {metadata.system && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">System</p>
+                    <p className="text-sm mt-1">{metadata.system}</p>
+                  </div>
+                )}
+                {metadata.asset_number && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Asset Number</p>
+                    <p className="text-sm mt-1">{metadata.asset_number}</p>
+                  </div>
+                )}
+                {metadata.description && (
+                  <div className="col-span-2">
+                    <p className="text-sm font-medium text-muted-foreground">Description</p>
+                    <p className="text-sm mt-1">{metadata.description}</p>
+                  </div>
+                )}
+                {metadata.rebuild_item && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Rebuild Item</p>
+                    <p className="text-sm mt-1">{metadata.rebuild_item}</p>
+                  </div>
+                )}
+                {metadata.approval_date && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Approval Date</p>
+                    <p className="text-sm mt-1">{metadata.approval_date}</p>
+                  </div>
+                )}
+                {metadata.total_cost && (
+                  <div>
+                    <p className="text-sm font-medium text-muted-foreground">Total Cost</p>
+                    <p className="text-sm mt-1">${metadata.total_cost.toFixed(2)}</p>
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        )}
+        
+        {items.length === 0 ? (
+          <div className="flex items-center justify-center py-12">
+            <p className="text-muted-foreground">No BOM items found for this sheet</p>
+          </div>
+        ) : (
+          <div className="border rounded-lg">
+            <Table>
           <TableHeader>
             <TableRow>
               <TableHead className="w-16">Actions</TableHead>
@@ -279,9 +394,27 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
               );
             })}
           </TableBody>
-        </Table>
-        </div>
+            </Table>
+          </div>
+        )}
       </div>
+
+      {sheets.length > 1 && (
+        <div className="fixed bottom-6 right-6 bg-background border rounded-lg shadow-lg p-2 flex gap-1 max-w-md overflow-x-auto">
+          {sheets.map((sheet) => (
+            <Button
+              key={sheet.id}
+              variant={currentSheetId === sheet.id ? "default" : "ghost"}
+              size="sm"
+              onClick={() => setCurrentSheetId(sheet.id)}
+              className="whitespace-nowrap"
+            >
+              <FileText className="h-4 w-4 mr-2" />
+              {sheet.sheet_name}
+            </Button>
+          ))}
+        </div>
+      )}
     </div>
   );
 };

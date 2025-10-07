@@ -10,9 +10,6 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
   const parseExcelFile = async (file: File, filePath: string) => {
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: "array" });
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
     // Extract asset hierarchy from file path
     const pathParts = filePath.split("/");
@@ -50,7 +47,30 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
       }
     }
 
-    // Create asset entry for the file itself
+    // Parse first sheet to extract metadata
+    const firstSheetName = workbook.SheetNames[0];
+    const firstWorksheet = workbook.Sheets[firstSheetName];
+    const rawData = XLSX.utils.sheet_to_json(firstWorksheet, { header: 1 }) as any[][];
+    
+    // Extract metadata from the first few rows
+    let metadata: any = {};
+    const metadataFields = [
+      "Assembly Name", "Assembly Manufacturer", "Description", 
+      "System", "Rebuild Item", "Asset Number", "Approval Date", "Total Cost"
+    ];
+    
+    for (let i = 0; i < Math.min(20, rawData.length); i++) {
+      const row = rawData[i];
+      if (row && row[0]) {
+        const fieldName = row[0].toString().trim();
+        if (metadataFields.some(field => fieldName.toLowerCase().includes(field.toLowerCase()))) {
+          const key = fieldName.toLowerCase().replace(/ /g, "_");
+          metadata[key] = row[1] || "";
+        }
+      }
+    }
+
+    // Create asset entry for the file itself with metadata
     fullPath += (fullPath ? "/" : "") + fileName;
     const { data: assetData } = await supabase
       .from("asset_hierarchy")
@@ -59,31 +79,62 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
         parent_id: currentParentId,
         path: fullPath,
         level: pathParts.length - 1,
+        assembly_name: metadata.assembly_name,
+        assembly_manufacturer: metadata.assembly_manufacturer,
+        description: metadata.description,
+        system: metadata.system,
+        rebuild_item: metadata.rebuild_item,
+        asset_number: metadata.asset_number,
+        approval_date: metadata.approval_date,
+        total_cost: metadata.total_cost ? parseFloat(metadata.total_cost) : null,
       })
       .select("id")
       .single();
 
     if (!assetData) return;
 
-    // Parse and insert BOM items
-    const bomItems = jsonData.map((row: any) => ({
-      asset_id: assetData.id,
-      item_no: row["ITEM NO."]?.toString() || "",
-      description: row["DESCRIPTION"] || "",
-      details: row["DETAILS"] || "",
-      manufacturer: row["MANUFACTURER"] || "",
-      part_number: row["PART NUMBER"] || "",
-      item_code: row["ITEM CODE"] || "",
-      uom: row["UOM"] || "",
-      sys_qty: row["SYS QTY"] ? parseFloat(row["SYS QTY"]) : null,
-      cost: row["COST"] ? parseFloat(row["COST"]) : null,
-    }));
+    // Parse and insert all sheets
+    for (let sheetIndex = 0; sheetIndex < workbook.SheetNames.length; sheetIndex++) {
+      const sheetName = workbook.SheetNames[sheetIndex];
+      const worksheet = workbook.Sheets[sheetName];
+      const jsonData = XLSX.utils.sheet_to_json(worksheet);
 
-    const { error: insertError } = await supabase
-      .from("bom_items")
-      .insert(bomItems);
+      // Create sheet record
+      const { data: sheetData } = await supabase
+        .from("asset_sheets")
+        .insert({
+          asset_id: assetData.id,
+          sheet_name: sheetName,
+          sheet_index: sheetIndex,
+        })
+        .select("id")
+        .single();
 
-    if (insertError) throw insertError;
+      if (!sheetData) continue;
+
+      // Parse and insert BOM items for this sheet
+      const bomItems = jsonData.map((row: any) => ({
+        asset_id: assetData.id,
+        sheet_id: sheetData.id,
+        item_no: row["ITEM NO."]?.toString() || "",
+        description: row["DESCRIPTION"] || "",
+        details: row["DETAILS"] || "",
+        manufacturer: row["MANUFACTURER"] || "",
+        part_number: row["PART NUMBER"] || "",
+        item_code: row["ITEM CODE"] || "",
+        uom: row["UOM"] || "",
+        sys_qty: row["SYS QTY"] ? parseFloat(row["SYS QTY"]) : null,
+        cost: row["COST"] ? parseFloat(row["COST"]) : null,
+      }));
+
+      if (bomItems.length > 0) {
+        const { error: insertError } = await supabase
+          .from("bom_items")
+          .insert(bomItems);
+
+        if (insertError) throw insertError;
+      }
+    }
   };
 
   const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {

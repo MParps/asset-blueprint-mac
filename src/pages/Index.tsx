@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FileUpload } from "@/components/FileUpload";
 import { AssetTree } from "@/components/AssetTree";
 import { BomTable } from "@/components/BomTable";
+import logo from "@/assets/logo.png";
 
 const Index = () => {
   const [selectedAssetId, setSelectedAssetId] = useState<string | null>(null);
@@ -23,9 +24,12 @@ const Index = () => {
     <div className="min-h-screen bg-background">
       <header className="border-b">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
-          <div>
-            <h1 className="text-2xl font-bold">Thermal Station BOM System</h1>
-            <p className="text-sm text-muted-foreground">Bill of Materials Management</p>
+          <div className="flex items-center gap-4">
+            <img src={logo} alt="VRA Logo" className="h-16 w-16 object-contain" />
+            <div>
+              <h1 className="text-2xl font-bold">BOM Management System</h1>
+              <p className="text-sm text-muted-foreground">Takoradi Thermal Power Station (TTPS-T1)</p>
+            </div>
           </div>
           <FileUpload onUploadSuccess={handleUploadSuccess} />
         </div>
