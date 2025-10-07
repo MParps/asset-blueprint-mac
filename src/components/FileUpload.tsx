@@ -127,10 +127,15 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
         cost: row["COST"] ? parseFloat(row["COST"]) : null,
       }));
 
-      if (bomItems.length > 0) {
+      // Only insert if there are valid BOM items with data
+      const validBomItems = bomItems.filter(item => 
+        item.item_no || item.description || item.manufacturer
+      );
+
+      if (validBomItems.length > 0) {
         const { error: insertError } = await supabase
           .from("bom_items")
-          .insert(bomItems);
+          .insert(validBomItems);
 
         if (insertError) throw insertError;
       }

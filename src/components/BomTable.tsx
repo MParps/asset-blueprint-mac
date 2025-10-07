@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Pencil, Save, X, ChevronRight, FileText } from "lucide-react";
+import { Pencil, Save, X, ChevronRight, FileText, Image } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
@@ -242,8 +242,17 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
         )}
         
         {items.length === 0 ? (
-          <div className="flex items-center justify-center py-12">
-            <p className="text-muted-foreground">No BOM items found for this sheet</p>
+          <div className="flex flex-col items-center justify-center py-12 space-y-4">
+            <div className="rounded-full bg-muted p-4">
+              <Image className="h-12 w-12 text-muted-foreground" />
+            </div>
+            <div className="text-center space-y-2">
+              <p className="text-lg font-medium">No BOM Data Found</p>
+              <p className="text-sm text-muted-foreground max-w-md">
+                This sheet may contain images, drawings, or performance curves that cannot be displayed as tabular data. 
+                Please download the original Excel file to view the full content.
+              </p>
+            </div>
           </div>
         ) : (
           <div className="border rounded-lg">

@@ -174,6 +174,38 @@ export type Database = {
           },
         ]
       }
+      sheet_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_data: string
+          image_index: number
+          sheet_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_data: string
+          image_index: number
+          sheet_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_data?: string
+          image_index?: number
+          sheet_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sheet_images_sheet_id_fkey"
+            columns: ["sheet_id"]
+            isOneToOne: false
+            referencedRelation: "asset_sheets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
