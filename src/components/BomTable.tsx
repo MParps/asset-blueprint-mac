@@ -1,9 +1,16 @@
 import { useState, useEffect } from "react";
-import { Pencil, Save, X, ChevronRight, FileText, Image } from "lucide-react";
+import { Pencil, Save, X, ChevronRight, FileText, Image, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Table,
   TableBody,
@@ -58,6 +65,7 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editedItem, setEditedItem] = useState<Partial<BomItem>>({});
   const [editingField, setEditingField] = useState<{ itemId: string; field: keyof BomItem; value: string; rect: DOMRect } | null>(null);
+  const [storagePath, setStoragePath] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -75,14 +83,15 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
   const loadAssetData = async () => {
     if (!assetId) return;
 
-    // Load metadata
+    // Load metadata and storage path
     const { data: assetData } = await supabase
       .from("asset_hierarchy")
-      .select("assembly_name, assembly_manufacturer, description, system, rebuild_item, asset_number, approval_date, total_cost")
+      .select("assembly_name, assembly_manufacturer, description, system, rebuild_item, asset_number, approval_date, total_cost, storage_path")
       .eq("id", assetId)
       .single();
 
     setMetadata(assetData);
+    setStoragePath(assetData?.storage_path || null);
 
     // Load sheets
     const { data: sheetsData } = await supabase
@@ -166,6 +175,46 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
     }));
   };
 
+  const handleDownload = async () => {
+    if (!storagePath) {
+      toast({
+        title: "Error",
+        description: "Original file not available for download",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const { data, error } = await supabase.storage
+        .from('excel-files')
+        .download(storagePath);
+
+      if (error) throw error;
+
+      const url = URL.createObjectURL(data);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = assetName + '.xlsx';
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      toast({
+        title: "Success",
+        description: "File downloaded successfully",
+      });
+    } catch (error) {
+      console.error("Download error:", error);
+      toast({
+        title: "Error",
+        description: "Failed to download file",
+        variant: "destructive",
+      });
+    }
+  };
+
   if (!assetId) {
     return (
       <div className="flex items-center justify-center h-full">
@@ -180,13 +229,21 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
   return (
     <div className="h-full flex flex-col">
       <div className="border-b bg-muted/30 p-6 mb-4">
-        <div className="flex items-center gap-1 text-sm text-muted-foreground mb-2">
-          {pathParts.map((part, index) => (
-            <div key={index} className="flex items-center">
-              {index > 0 && <ChevronRight className="h-3 w-3 mx-1" />}
-              <span>{part}</span>
-            </div>
-          ))}
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-1 text-sm text-muted-foreground">
+            {pathParts.map((part, index) => (
+              <div key={index} className="flex items-center">
+                {index > 0 && <ChevronRight className="h-3 w-3 mx-1" />}
+                <span>{part}</span>
+              </div>
+            ))}
+          </div>
+          {storagePath && (
+            <Button onClick={handleDownload} variant="outline" size="sm">
+              <Download className="mr-2 h-4 w-4" />
+              Download Original File
+            </Button>
+          )}
         </div>
         <h2 className="text-3xl font-bold">{assetName}</h2>
         {currentSheet && (
@@ -249,9 +306,14 @@ export const BomTable = ({ assetId, assetName, assetPath }: BomTableProps) => {
             <div className="text-center space-y-2">
               <p className="text-lg font-medium">No BOM Data Found</p>
               <p className="text-sm text-muted-foreground max-w-md">
-                This sheet may contain images, drawings, or performance curves that cannot be displayed as tabular data. 
-                Please download the original Excel file to view the full content.
+                This sheet may contain images, drawings, or performance curves that cannot be displayed as tabular data.
               </p>
+              {storagePath && (
+                <Button onClick={handleDownload} variant="outline" className="mt-4">
+                  <Download className="mr-2 h-4 w-4" />
+                  Download Original File to View Images
+                </Button>
+              )}
             </div>
           </div>
         ) : (

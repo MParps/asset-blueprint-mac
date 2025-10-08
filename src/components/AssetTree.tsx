@@ -46,6 +46,8 @@ export const AssetTree = ({ onAssetSelect, selectedAssetId, refreshTrigger }: As
   const [newFolderName, setNewFolderName] = useState("");
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [assetToDelete, setAssetToDelete] = useState<Asset | null>(null);
+  const [draggedAsset, setDraggedAsset] = useState<Asset | null>(null);
+  const [dragOverAsset, setDragOverAsset] = useState<string | null>(null);
   const { toast } = useToast();
 
   useEffect(() => {
@@ -191,6 +193,77 @@ export const AssetTree = ({ onAssetSelect, selectedAssetId, refreshTrigger }: As
     setExpandedNodes(newExpanded);
   };
 
+  const handleDragStart = (e: React.DragEvent, asset: Asset) => {
+    setDraggedAsset(asset);
+    e.dataTransfer.effectAllowed = 'move';
+  };
+
+  const handleDragOver = (e: React.DragEvent, targetAsset: Asset) => {
+    e.preventDefault();
+    e.stopPropagation();
+    
+    // Only allow dropping on folders (items with children or potential to have children)
+    if (draggedAsset && draggedAsset.id !== targetAsset.id) {
+      setDragOverAsset(targetAsset.id);
+    }
+  };
+
+  const handleDragLeave = () => {
+    setDragOverAsset(null);
+  };
+
+  const handleDrop = async (e: React.DragEvent, targetAsset: Asset) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragOverAsset(null);
+
+    if (!draggedAsset || draggedAsset.id === targetAsset.id) return;
+
+    // Prevent dropping a parent into its own child
+    if (targetAsset.path.startsWith(draggedAsset.path + '/')) {
+      toast({
+        title: "Error",
+        description: "Cannot move a folder into its own subfolder",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Update the asset's parent and path
+    const newPath = targetAsset.path ? `${targetAsset.path}/${draggedAsset.name}` : draggedAsset.name;
+    const newLevel = targetAsset.level + 1;
+
+    const { error } = await supabase
+      .from("asset_hierarchy")
+      .update({
+        parent_id: targetAsset.id,
+        path: newPath,
+        level: newLevel,
+      })
+      .eq("id", draggedAsset.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to move item",
+        variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Success",
+        description: `Moved "${draggedAsset.name}" into "${targetAsset.name}"`,
+      });
+      loadAssets();
+    }
+
+    setDraggedAsset(null);
+  };
+
+  const handleDragEnd = () => {
+    setDraggedAsset(null);
+    setDragOverAsset(null);
+  };
+
   const renderTree = (nodes: Asset[], level: number = 0) => {
     return nodes.map((node) => {
       const isExpanded = expandedNodes.has(node.id);
@@ -202,9 +275,15 @@ export const AssetTree = ({ onAssetSelect, selectedAssetId, refreshTrigger }: As
           <ContextMenuTrigger>
             <div style={{ marginLeft: `${level * 20}px` }}>
               <div
-                className={`flex items-center gap-2 py-2 px-3 rounded-md cursor-pointer transition-colors ${
+                className={`flex items-center gap-2 py-2 px-3 rounded-md cursor-move transition-colors ${
                   isSelected ? "bg-primary/10 text-primary" : "hover:bg-muted/50"
-                }`}
+                } ${dragOverAsset === node.id ? "bg-primary/20 border-2 border-primary" : ""}`}
+                draggable
+                onDragStart={(e) => handleDragStart(e, node)}
+                onDragOver={(e) => handleDragOver(e, node)}
+                onDragLeave={handleDragLeave}
+                onDrop={(e) => handleDrop(e, node)}
+                onDragEnd={handleDragEnd}
                 onClick={() => onAssetSelect(node.id, node.name, node.path)}
               >
                 {hasChildren ? (

@@ -28,6 +28,7 @@ export type Database = {
           parent_id: string | null
           path: string
           rebuild_item: string | null
+          storage_path: string | null
           system: string | null
           total_cost: number | null
           updated_at: string | null
@@ -45,6 +46,7 @@ export type Database = {
           parent_id?: string | null
           path: string
           rebuild_item?: string | null
+          storage_path?: string | null
           system?: string | null
           total_cost?: number | null
           updated_at?: string | null
@@ -62,6 +64,7 @@ export type Database = {
           parent_id?: string | null
           path?: string
           rebuild_item?: string | null
+          storage_path?: string | null
           system?: string | null
           total_cost?: number | null
           updated_at?: string | null

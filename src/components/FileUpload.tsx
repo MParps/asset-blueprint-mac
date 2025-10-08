@@ -1,15 +1,30 @@
 import { Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Progress } from "@/components/ui/progress";
 import * as XLSX from "xlsx";
 import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 
 export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void }) => {
   const { toast } = useToast();
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [currentFileName, setCurrentFileName] = useState("");
 
-  const parseExcelFile = async (file: File, filePath: string) => {
+  const parseExcelFile = async (file: File, filePath: string, fileIndex: number, totalFiles: number) => {
     const arrayBuffer = await file.arrayBuffer();
     const workbook = XLSX.read(arrayBuffer, { type: "array" });
+
+    // Upload original file to storage
+    const storagePath = `${filePath.replace(/\\/g, '/')}`;
+    const { error: uploadError } = await supabase.storage
+      .from('excel-files')
+      .upload(storagePath, file, { upsert: true });
+
+    if (uploadError) {
+      console.error("Storage upload error:", uploadError);
+    }
 
     // Extract asset hierarchy from file path
     const pathParts = filePath.split("/");
@@ -87,6 +102,7 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
         asset_number: metadata.asset_number,
         approval_date: metadata.approval_date,
         total_cost: metadata.total_cost ? parseFloat(metadata.total_cost) : null,
+        storage_path: uploadError ? null : storagePath,
       })
       .select("id")
       .single();
@@ -146,12 +162,19 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
+    setIsUploading(true);
+    setUploadProgress(0);
+
     try {
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
+        setCurrentFileName(file.name);
+        const progress = ((i + 1) / files.length) * 100;
+        setUploadProgress(progress);
+        
         // Get the full path from webkitRelativePath if available (folder upload)
         const filePath = (file as any).webkitRelativePath || file.name;
-        await parseExcelFile(file, filePath);
+        await parseExcelFile(file, filePath, i + 1, files.length);
       }
 
       toast({
@@ -160,6 +183,11 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
       });
       
       onUploadSuccess();
+      setUploadProgress(100);
+      setTimeout(() => {
+        setIsUploading(false);
+        setCurrentFileName("");
+      }, 1000);
     } catch (error) {
       console.error("Upload error:", error);
       toast({
@@ -167,46 +195,64 @@ export const FileUpload = ({ onUploadSuccess }: { onUploadSuccess: () => void })
         description: "Failed to upload files",
         variant: "destructive",
       });
+      setIsUploading(false);
     }
+    
+    // Reset file input
+    event.target.value = '';
   };
 
   return (
-    <div className="flex items-center gap-2">
-      <input
-        type="file"
-        id="file-upload"
-        className="hidden"
-        accept=".xlsx,.xls"
-        multiple
-        onChange={handleFileUpload}
-      />
-      <input
-        type="file"
-        id="folder-upload"
-        className="hidden"
-        accept=".xlsx,.xls"
-        // @ts-ignore - webkitdirectory is not in the types but works in browsers
-        webkitdirectory=""
-        directory=""
-        multiple
-        onChange={handleFileUpload}
-      />
-      <label htmlFor="file-upload">
-        <Button asChild>
-          <span className="cursor-pointer">
-            <Upload className="mr-2 h-4 w-4" />
-            Upload Files
-          </span>
-        </Button>
-      </label>
-      <label htmlFor="folder-upload">
-        <Button asChild variant="outline">
-          <span className="cursor-pointer">
-            <Upload className="mr-2 h-4 w-4" />
-            Upload Folder
-          </span>
-        </Button>
-      </label>
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <input
+          type="file"
+          id="file-upload"
+          className="hidden"
+          accept=".xlsx,.xls"
+          multiple
+          onChange={handleFileUpload}
+          disabled={isUploading}
+        />
+        <input
+          type="file"
+          id="folder-upload"
+          className="hidden"
+          accept=".xlsx,.xls"
+          // @ts-ignore - webkitdirectory is not in the types but works in browsers
+          webkitdirectory=""
+          directory=""
+          multiple
+          onChange={handleFileUpload}
+          disabled={isUploading}
+        />
+        <label htmlFor="file-upload">
+          <Button asChild disabled={isUploading}>
+            <span className="cursor-pointer">
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Files
+            </span>
+          </Button>
+        </label>
+        <label htmlFor="folder-upload">
+          <Button asChild variant="outline" disabled={isUploading}>
+            <span className="cursor-pointer">
+              <Upload className="mr-2 h-4 w-4" />
+              Upload Folder
+            </span>
+          </Button>
+        </label>
+      </div>
+      
+      {isUploading && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between text-sm">
+            <span className="text-muted-foreground">Uploading: {currentFileName}</span>
+            <span className="font-medium">{Math.round(uploadProgress)}%</span>
+          </div>
+          <Progress value={uploadProgress} className="h-2" />
+        </div>
+      )}
     </div>
   );
 };
